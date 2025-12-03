@@ -1,4 +1,6 @@
 let trackedItems = [];
+
+
 let trackingIntervals = {};
 let quotaUsed = parseInt(localStorage.getItem('youtube_quota_used') || '0');
 let quotaResetTime = localStorage.getItem('youtube_quota_reset') || new Date().toDateString();
