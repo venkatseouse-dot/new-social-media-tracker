@@ -18,7 +18,7 @@ function generateSyncCode() {
   document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Your sync code: <strong>${code}</strong><br>Use this code on other devices to sync data</span>`;
 }
 
-async function syncWithCode() {
+function syncWithCode() {
   const code = document.getElementById('userCode').value.trim().toUpperCase();
   if (!code) {
     alert('Please enter a sync code');
@@ -30,24 +30,24 @@ async function syncWithCode() {
   // Save current local data first
   const localData = [...trackedItems];
   
-  // Switch to new user ID and load their data from database
+  // Switch to new user ID and load their data
   localStorage.setItem('userId', code);
-  await loadFromCloud();
+  loadFromCloud();
   
-  // Merge local data with database data
-  const databaseData = [...trackedItems];
+  // Merge local data with loaded data
+  const loadedData = [...trackedItems];
   
-  // Add local items that don't exist in database (by URL)
+  // Add local items that don't exist in loaded data (by URL)
   localData.forEach(localItem => {
-    const exists = databaseData.some(dbItem => dbItem.url === localItem.url);
+    const exists = loadedData.some(loadedItem => loadedItem.url === localItem.url);
     if (!exists) {
-      databaseData.push(localItem);
+      loadedData.push(localItem);
     }
   });
   
-  // Update with merged data and save to database
-  trackedItems = databaseData;
-  await saveToCloud();
+  // Update with merged data and save
+  trackedItems = loadedData;
+  saveToCloud();
   renderTrackedItems();
   
   document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Synced! Total items: ${trackedItems.length}</span>`;
@@ -65,10 +65,10 @@ async function saveToCloud() {
     if (response.ok) {
       console.log('✅ Data saved to database for user:', userId);
     } else {
-      throw new Error('Save failed');
+      throw new Error(`HTTP ${response.status}`);
     }
   } catch (error) {
-    console.log('💾 Database save failed, using local storage');
+    console.error('💾 Database save failed:', error);
     localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
   }
 }
@@ -83,10 +83,10 @@ async function loadFromCloud() {
       console.log('✅ Data loaded from database for user:', userId, '- items:', trackedItems.length);
       localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
     } else {
-      throw new Error('Load failed');
+      throw new Error(`HTTP ${response.status}`);
     }
   } catch (error) {
-    console.log('💾 Database load failed, using local storage');
+    console.error('💾 Database load failed:', error);
     const local = localStorage.getItem('trackedItems');
     trackedItems = local ? JSON.parse(local) : [];
   }
