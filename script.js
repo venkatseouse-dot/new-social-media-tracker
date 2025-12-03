@@ -18,7 +18,7 @@ function generateSyncCode() {
   document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Your sync code: <strong>${code}</strong><br>Use this code on other devices to sync data</span>`;
 }
 
-function syncWithCode() {
+async function syncWithCode() {
   const code = document.getElementById('userCode').value.trim().toUpperCase();
   if (!code) {
     alert('Please enter a sync code');
@@ -28,11 +28,11 @@ function syncWithCode() {
   localStorage.setItem('userId', code);
   document.getElementById('syncStatus').innerHTML = `<span style="color: blue;">🔄 Syncing with code: <strong>${code}</strong></span>`;
   
-  // Reload data with new user ID
-  loadFromCloud().then(() => {
-    renderTrackedItems();
-    document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Synced successfully! Found ${trackedItems.length} items</span>`;
-  });
+  // Clear current data and reload from cloud with new user ID
+  trackedItems = [];
+  await loadFromCloud();
+  renderTrackedItems();
+  document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Synced successfully! Found ${trackedItems.length} items</span>`;
 }
 
 // Cloud sync functions
@@ -56,22 +56,25 @@ async function saveToCloud() {
 async function loadFromCloud() {
   try {
     const userId = getUserId();
+    console.log('Loading data for user:', userId);
     const response = await fetch(`/api/tracked-items?userId=${userId}`);
     if (response.ok) {
       const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
+      if (Array.isArray(data)) {
         trackedItems = data;
         console.log('✅ Data loaded from cloud:', data.length, 'items');
+        localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
         return;
       }
     }
   } catch (error) {
-    console.log('💾 Cloud load failed, using local storage');
+    console.log('💾 Cloud load failed:', error);
   }
   
-  // Fallback to localStorage
+  // Fallback to localStorage only if cloud fails
   const local = localStorage.getItem('trackedItems');
   trackedItems = local ? JSON.parse(local) : [];
+  console.log('Using local storage:', trackedItems.length, 'items');
 }
 let trackingIntervals = {};
 let quotaUsed = parseInt(localStorage.getItem('youtube_quota_used') || '0');
