@@ -9,8 +9,5 @@
     "start": "vercel dev"
   },
   "dependencies": {},
-  "devDependencies": {},
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "devDependencies": {}
 }
