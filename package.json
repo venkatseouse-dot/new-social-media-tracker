@@ -1,7 +1,7 @@
 {
   "name": "social-media-tracker-final",
   "version": "4.0.0",
-  "description": "Complete Social Media Analytics Tracker with Cross-Device Sync",
+  "description": "Complete Social Media Analytics Tracker",
   "main": "index.html",
   "scripts": {
     "dev": "vercel dev",
