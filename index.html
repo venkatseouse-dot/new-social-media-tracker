@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Analytics Tracker</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg width='32' height='32' viewBox='0 0 32 32' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='32' height='32' rx='6' fill='%231a1a1a'/%3E%3Cpath d='M8 12L14 16L8 20V12Z' fill='%23FF0000'/%3E%3Ccircle cx='22' cy='16' r='6' fill='%23E4405F'/%3E%3Ccircle cx='22' cy='16' r='2' fill='white'/%3E%3C/svg%3E">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <i class="fab fa-youtube" style="color: #ff0000;"></i>
+                <i class="fab fa-instagram" style="color: #E4405F;"></i>
+                <h1>Social Media Tracker</h1>
+            </div>
+            <p class="subtitle">Real-time YouTube & Instagram Analytics</p>
+            
+            <!-- Google Sheets Integration -->
+            <div class="google-sheets-section" style="background: linear-gradient(135deg, rgba(52,168,83,0.1), rgba(66,133,244,0.1)); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+                <h3 style="margin-bottom: 16px; color: #1a1a1a;">📊 Google Sheets Integration</h3>
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <input type="url" id="googleSheetUrl" placeholder="Paste your Google Sheet URL here" style="flex: 1; padding: 12px 16px; border: 2px solid rgba(52,168,83,0.3); border-radius: 12px; font-size: 14px; min-width: 300px;" />
+                    <button class="btn btn-primary" onclick="saveGoogleSheetUrl()" style="margin: 0;">Save Sheet</button>
+                    <button class="btn btn-secondary" onclick="syncToGoogleSheets()" style="margin: 0;">Sync Now</button>
+                </div>
+                <div id="sheetsStatus" style="margin-top: 12px; font-size: 14px;"></div>
+            </div>
+            
+            <div class="api-manager">
+                <div class="api-section youtube-section">
+                    <div class="api-header">
+                        <i class="fab fa-youtube"></i>
+                        <h3>YouTube API</h3>
+                    </div>
+                    <div class="api-inputs">
+                        <input type="password" id="ytApiKey" placeholder="YouTube API Key" />
+                        <input type="text" id="ytOwnerName" placeholder="Owner Name" />
+                        <button class="btn btn-primary" onclick="saveYouTubeAPI()">Save</button>
+                    </div>
+                    <div id="savedYouTubeAPIs" class="saved-apis"></div>
+                    <div id="apiStatus" class="api-status"></div>
+                    <div class="quota-display" id="youtubeQuota">
+                        <div class="quota-header">
+                            <span class="quota-title">Daily Quota</span>
+                            <span class="quota-text">0 / 10,000 (0%)</span>
+                        </div>
+                        <div class="quota-bar">
+                            <div class="quota-fill" style="width: 0%"></div>
+                        </div>
+                        <div class="quota-footer">
+                            <span>Resets: Tomorrow at midnight</span>
+                            <button id="resetQuotaBtn" class="btn-reset" onclick="resetQuota()" style="display: none;">Reset</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="api-section apify-section">
+                    <div class="api-header">
+                        <i class="fab fa-instagram"></i>
+                        <h3>Apify API</h3>
+                    </div>
+                    <div class="api-inputs">
+                        <input type="password" id="apifyApiToken" placeholder="Apify Token" />
+                        <input type="text" id="apifyOwnerName" placeholder="Owner Name" />
+                        <button class="btn btn-primary" onclick="saveApifyAPI()">Save</button>
+                    </div>
+                    <div id="savedApifyAPIs" class="saved-apis"></div>
+                    <div id="apifyStatus" class="api-status"></div>
+                    <div class="quota-display" id="apifyQuota">
+                        <div class="quota-header">
+                            <span class="quota-title">Daily Budget</span>
+                            <span class="quota-text instagram-quota-text">$0.00 / $10.00 (0%)</span>
+                        </div>
+                        <div class="quota-bar">
+                            <div class="quota-fill instagram-quota-fill" style="width: 0%"></div>
+                        </div>
+                        <div class="quota-footer">
+                            <span>Resets: Tomorrow at midnight</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-plus"></i> Add Content to Track</h2>
+            </div>
+            
+            <div class="input-group">
+                <label for="userName">
+                    <i class="fas fa-user"></i>
+                    Your Name (Required)
+                </label>
+                <input type="text" id="userName" placeholder="Enter your name to track content" />
+            </div>
+            
+            <div class="platform-tabs">
+                <button class="platform-tab active" onclick="switchPlatform('youtube')">
+                    <i class="fab fa-youtube"></i>
+                    YouTube
+                </button>
+                <button class="platform-tab" onclick="switchPlatform('instagram')">
+                    <i class="fab fa-instagram"></i>
+                    Instagram
+                </button>
+            </div>
+            
+            <div id="youtube-form" class="platform-form active">
+                <div class="input-group">
+                    <label for="youtubeUrl">
+                        <i class="fab fa-youtube"></i>
+                        YouTube URLs (one per line)
+                    </label>
+                    <div class="url-input-container">
+                        <textarea id="youtubeUrl" rows="4" placeholder="🎥 Paste YouTube URLs here...
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ
+https://www.youtube.com/shorts/abc123
+
+✨ Pro tip: Paste multiple URLs, one per line" oninput="updateUrlCounter('youtubeUrl', 'youtubeCounter')" onblur="fetchYouTubeTitle()"></textarea>
+                        <div id="youtubeCounter" class="url-counter">0 URLs</div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="youtubeTitle">
+                        <i class="fas fa-heading"></i>
+                        Video Title
+                    </label>
+                    <input type="text" id="youtubeTitle" placeholder="Title will appear automatically" readonly />
+                </div>
+                <div class="input-group">
+                    <label for="youtubeInterval">
+                        <i class="fas fa-clock"></i>
+                        Tracking Interval
+                    </label>
+                    <select id="youtubeInterval">
+                        <option value="86400000">Every 24 Hours</option>
+                        <option value="43200000">Every 12 Hours</option>
+                        <option value="21600000">Every 6 Hours</option>
+                        <option value="18000000">Every 5 Hours</option>
+                        <option value="10800000">Every 3 Hours</option>
+                        <option value="7200000">Every 2 Hours</option>
+                        <option value="3600000">Every Hour</option>
+                        <option value="1800000">Every 30 Minutes</option>
+                        <option value="900000">Every 15 Minutes</option>
+                        <option value="300000">Every 5 Minutes</option>
+                        <option value="120000">Every 2 Minutes</option>
+                        <option value="60000">Every 1 Minute</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addYouTubeContent()">
+                    <i class="fab fa-youtube"></i>
+                    Track YouTube Video
+                </button>
+            </div>
+            
+            <div id="instagram-form" class="platform-form">
+                <div class="input-group">
+                    <label for="instagramUrl">
+                        <i class="fab fa-instagram"></i>
+                        Instagram URLs (one per line)
+                    </label>
+                    <div class="url-input-container">
+                        <textarea id="instagramUrl" rows="4" placeholder="📸 Paste Instagram URLs here...
+
+https://www.instagram.com/p/ABC123/
+https://www.instagram.com/reel/DEF456/
+
+✨ Pro tip: Paste multiple URLs, one per line" oninput="updateUrlCounter('instagramUrl', 'instagramCounter')" onblur="fetchInstagramTitle()"></textarea>
+                        <div id="instagramCounter" class="url-counter">0 URLs</div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="instagramTitle">
+                        <i class="fas fa-heading"></i>
+                        Post Title/Caption
+                    </label>
+                    <input type="text" id="instagramTitle" placeholder="Title will appear automatically" readonly />
+                </div>
+                <div class="input-group">
+                    <label for="instagramInterval">
+                        <i class="fas fa-clock"></i>
+                        Tracking Interval
+                    </label>
+                    <select id="instagramInterval">
+                        <option value="86400000">Every 24 Hours</option>
+                        <option value="43200000">Every 12 Hours</option>
+                        <option value="21600000">Every 6 Hours</option>
+                        <option value="18000000">Every 5 Hours</option>
+                        <option value="10800000">Every 3 Hours</option>
+                        <option value="7200000">Every 2 Hours</option>
+                        <option value="3600000">Every Hour</option>
+                        <option value="1800000">Every 30 Minutes</option>
+                        <option value="900000">Every 15 Minutes</option>
+                        <option value="300000">Every 5 Minutes</option>
+                        <option value="120000">Every 2 Minutes</option>
+                        <option value="60000">Every 1 Minute</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary" onclick="addInstagramContent()">
+                    <i class="fab fa-instagram"></i>
+                    Track Instagram Post
+                </button>
+            </div>
+        </div>
+
+        <div class="tracking-controls">
+            <div class="control-group">
+                <button class="btn btn-success" onclick="startAllTracking()" id="startBtn">
+                    <i class="fas fa-play"></i>
+                    Start All
+                </button>
+                <button class="btn btn-danger" onclick="stopAllTracking()" id="stopBtn">
+                    <i class="fas fa-stop"></i>
+                    Stop All
+                </button>
+                <button class="btn btn-secondary" onclick="refreshAll()">
+                    <i class="fas fa-refresh"></i>
+                    Refresh
+                </button>
+                <button class="btn btn-secondary" onclick="exportData()">
+                    <i class="fas fa-download"></i>
+                    Export
+                </button>
+                <button class="btn btn-secondary" onclick="clearAllData()">
+                    <i class="fas fa-broom"></i>
+                    Clear All
+                </button>
+            </div>
+            <div class="status-info">
+                <span id="trackingStatus">Ready to track</span>
+                <span id="activeTrackers">0 active trackers</span>
+            </div>
+        </div>
+        
+        <div class="filter-controls">
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterContent('all')">
+                    <i class="fas fa-th"></i>
+                    All Content
+                </button>
+                <button class="filter-tab" onclick="filterContent('youtube')">
+                    <i class="fab fa-youtube"></i>
+                    YouTube Only
+                </button>
+                <button class="filter-tab" onclick="filterContent('instagram')">
+                    <i class="fab fa-instagram"></i>
+                    Instagram Only
+                </button>
+            </div>
+            <div class="user-filter">
+                <label for="userFilter">
+                    <i class="fas fa-user"></i>
+                    Filter by User:
+                </label>
+                <select id="userFilter" onchange="filterByUser()">
+                    <option value="all">All Users</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="trackedContent">
+            <div class="placeholder">
+                <i class="fas fa-chart-area"></i>
+                <h3>No Content Being Tracked</h3>
+                <p>Add YouTube videos/shorts or Instagram posts to start tracking</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for data table/chart -->
+    <div id="dataModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Data View</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
