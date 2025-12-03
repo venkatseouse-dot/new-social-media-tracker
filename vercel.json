@@ -1,7 +1,8 @@
 {
+  "version": 2,
   "functions": {
     "api/tracked-items.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "nodejs20.x"
     }
   }
 }
