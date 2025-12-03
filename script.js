@@ -25,17 +25,35 @@ async function syncWithCode() {
     return;
   }
   
-  localStorage.setItem('userId', code);
   document.getElementById('syncStatus').innerHTML = `<span style="color: blue;">🔄 Syncing with code: <strong>${code}</strong></span>`;
   
-  // Clear current data and reload from cloud with new user ID
-  trackedItems = [];
+  // Save current local data first
+  const localData = [...trackedItems];
+  
+  // Switch to new user ID and load their data from database
+  localStorage.setItem('userId', code);
   await loadFromCloud();
+  
+  // Merge local data with database data
+  const databaseData = [...trackedItems];
+  
+  // Add local items that don't exist in database (by URL)
+  localData.forEach(localItem => {
+    const exists = databaseData.some(dbItem => dbItem.url === localItem.url);
+    if (!exists) {
+      databaseData.push(localItem);
+    }
+  });
+  
+  // Update with merged data and save to database
+  trackedItems = databaseData;
+  await saveToCloud();
   renderTrackedItems();
-  document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Synced successfully! Found ${trackedItems.length} items</span>`;
+  
+  document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Synced! Total items: ${trackedItems.length}</span>`;
 }
 
-// Cloud sync functions
+// Database sync functions
 async function saveToCloud() {
   try {
     const userId = getUserId();
@@ -45,36 +63,33 @@ async function saveToCloud() {
       body: JSON.stringify({ items: trackedItems })
     });
     if (response.ok) {
-      console.log('✅ Data synced to cloud');
+      console.log('✅ Data saved to database for user:', userId);
+    } else {
+      throw new Error('Save failed');
     }
   } catch (error) {
-    console.log('💾 Cloud sync failed, using local storage');
+    console.log('💾 Database save failed, using local storage');
+    localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
   }
-  localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
 }
 
 async function loadFromCloud() {
   try {
     const userId = getUserId();
-    console.log('Loading data for user:', userId);
     const response = await fetch(`/api/tracked-items?userId=${userId}`);
     if (response.ok) {
       const data = await response.json();
-      if (Array.isArray(data)) {
-        trackedItems = data;
-        console.log('✅ Data loaded from cloud:', data.length, 'items');
-        localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
-        return;
-      }
+      trackedItems = Array.isArray(data) ? data : [];
+      console.log('✅ Data loaded from database for user:', userId, '- items:', trackedItems.length);
+      localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
+    } else {
+      throw new Error('Load failed');
     }
   } catch (error) {
-    console.log('💾 Cloud load failed:', error);
+    console.log('💾 Database load failed, using local storage');
+    const local = localStorage.getItem('trackedItems');
+    trackedItems = local ? JSON.parse(local) : [];
   }
-  
-  // Fallback to localStorage only if cloud fails
-  const local = localStorage.getItem('trackedItems');
-  trackedItems = local ? JSON.parse(local) : [];
-  console.log('Using local storage:', trackedItems.length, 'items');
 }
 let trackingIntervals = {};
 let quotaUsed = parseInt(localStorage.getItem('youtube_quota_used') || '0');
@@ -84,7 +99,7 @@ let instagramQuotaLimit = 10.00; // $10 daily limit
 let instagramQuotaResetTime = localStorage.getItem('instagram_quota_reset') || new Date().toDateString();
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // Load data from cloud first
+    // Load data from database first
     await loadFromCloud();
     
     // Show current sync code
