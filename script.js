@@ -1687,7 +1687,7 @@ async function syncToGoogleSheets() {
         const sheetData = convertToSheetFormat(trackedItems);
         
         // Use Google Apps Script Web App to write data
-        const response = await fetch(`https://script.google.com/macros/s/AKfycbyDU9qVFkGGO4nitemYK4O7kQrfWEa4VDsg26TG3LrZUPZF_kKLke2stsM8ZXOhVjgSCw/exec`, {
+        const response = await fetch(`https://script.google.com/macros/s/AKfycbzNpuFB5YULk0FVERK4fmOf05YMEipIzQ4UFe1SxJxG4gfEE_9sIK2WxcOUAPElJpyLjQ/exec`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1715,7 +1715,7 @@ async function loadFromGoogleSheets() {
     try {
         document.getElementById('sheetsStatus').innerHTML = '<span style="color: blue;">🔄 Loading from Google Sheets...</span>';
         
-        const response = await fetch(`https://script.google.com/macros/s/AKfycbyDU9qVFkGGO4nitemYK4O7kQrfWEa4VDsg26TG3LrZUPZF_kKLke2stsM8ZXOhVjgSCw/exec?action=readData&sheetId=${googleSheetId}`);
+        const response = await fetch(`https://script.google.com/macros/s/AKfycbzNpuFB5YULk0FVERK4fmOf05YMEipIzQ4UFe1SxJxG4gfEE_9sIK2WxcOUAPElJpyLjQ/exec?action=readData&sheetId=${googleSheetId}`);
         
         if (response.ok) {
             const data = await response.json();
