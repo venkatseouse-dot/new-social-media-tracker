@@ -1,4 +1,7 @@
 let trackedItems = [];
+let googleSheetUrl = localStorage.getItem('google_sheet_url') || '';
+let googleSheetId = '';
+let googleApiKey = '';
 
 
 let trackingIntervals = {};
@@ -9,9 +12,18 @@ let instagramQuotaLimit = 10.00; // $10 daily limit
 let instagramQuotaResetTime = localStorage.getItem('instagram_quota_reset') || new Date().toDateString();
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // Load data from localStorage
-    const local = localStorage.getItem('trackedItems');
-    trackedItems = local ? JSON.parse(local) : [];
+    // Load Google Sheets URL
+    const savedSheetUrl = localStorage.getItem('google_sheet_url');
+    if (savedSheetUrl) {
+        document.getElementById('googleSheetUrl').value = savedSheetUrl;
+        googleSheetUrl = savedSheetUrl;
+        extractSheetId(savedSheetUrl);
+        loadFromGoogleSheets();
+    } else {
+        // Load data from localStorage as fallback
+        const local = localStorage.getItem('trackedItems');
+        trackedItems = local ? JSON.parse(local) : [];
+    }
     
     // Migrate old data to new format
     migrateOldData();
@@ -727,6 +739,7 @@ async function updateItemData(itemId) {
             item.data.push(newData);
             if (item.data.length > 100) item.data.shift();
             localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
+            if (googleSheetUrl) syncToGoogleSheets();
             renderTrackedItems();
         }
     } catch (error) {
@@ -1630,3 +1643,155 @@ function initializeApifyStatus() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeApifyStatus();
 });
+
+// Google Sheets Integration Functions
+function saveGoogleSheetUrl() {
+    const url = document.getElementById('googleSheetUrl').value.trim();
+    if (!url) {
+        alert('Please enter a Google Sheet URL');
+        return;
+    }
+    
+    if (!url.includes('docs.google.com/spreadsheets')) {
+        alert('Please enter a valid Google Sheets URL');
+        return;
+    }
+    
+    googleSheetUrl = url;
+    localStorage.setItem('google_sheet_url', url);
+    extractSheetId(url);
+    
+    document.getElementById('sheetsStatus').innerHTML = '<span style="color: green;">✅ Google Sheet URL saved</span>';
+    
+    // Initial sync to Google Sheets
+    syncToGoogleSheets();
+}
+
+function extractSheetId(url) {
+    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (match) {
+        googleSheetId = match[1];
+    }
+}
+
+async function syncToGoogleSheets() {
+    if (!googleSheetUrl || !googleSheetId) {
+        alert('Please save a Google Sheet URL first');
+        return;
+    }
+    
+    document.getElementById('sheetsStatus').innerHTML = '<span style="color: blue;">🔄 Syncing to Google Sheets...</span>';
+    
+    try {
+        // Convert trackedItems to sheet format
+        const sheetData = convertToSheetFormat(trackedItems);
+        
+        // Use Google Apps Script Web App to write data
+        const response = await fetch(`https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'writeData',
+                sheetId: googleSheetId,
+                data: sheetData
+            })
+        });
+        
+        if (response.ok) {
+            document.getElementById('sheetsStatus').innerHTML = '<span style="color: green;">✅ Data synced to Google Sheets</span>';
+        } else {
+            throw new Error('Failed to sync');
+        }
+    } catch (error) {
+        console.error('Google Sheets sync error:', error);
+        document.getElementById('sheetsStatus').innerHTML = '<span style="color: red;">❌ Sync failed - using local storage</span>';
+        localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
+    }
+}
+
+async function loadFromGoogleSheets() {
+    if (!googleSheetUrl || !googleSheetId) return;
+    
+    try {
+        document.getElementById('sheetsStatus').innerHTML = '<span style="color: blue;">🔄 Loading from Google Sheets...</span>';
+        
+        const response = await fetch(`https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?action=readData&sheetId=${googleSheetId}`);
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data && data.length > 0) {
+                trackedItems = convertFromSheetFormat(data);
+                document.getElementById('sheetsStatus').innerHTML = '<span style="color: green;">✅ Data loaded from Google Sheets</span>';
+            }
+        }
+    } catch (error) {
+        console.error('Google Sheets load error:', error);
+        document.getElementById('sheetsStatus').innerHTML = '<span style="color: orange;">⚠️ Using local data</span>';
+        const local = localStorage.getItem('trackedItems');
+        trackedItems = local ? JSON.parse(local) : [];
+    }
+}
+
+function convertToSheetFormat(items) {
+    const headers = ['ID', 'Name', 'URL', 'Platform', 'User', 'API Owner', 'Interval', 'Is Tracking', 'Latest Views', 'Latest Likes', 'Latest Comments', 'Last Updated', 'Data Points'];
+    const rows = [headers];
+    
+    items.forEach(item => {
+        const latest = item.data[item.data.length - 1] || {};
+        rows.push([
+            item.id,
+            item.name || '',
+            item.url || '',
+            item.platform || '',
+            item.userName || '',
+            item.apiOwner || '',
+            item.interval || 0,
+            item.isTracking ? 'TRUE' : 'FALSE',
+            latest.views || '',
+            latest.likes || '',
+            latest.comments || '',
+            latest.timestamp || '',
+            item.data.length
+        ]);
+    });
+    
+    return rows;
+}
+
+function convertFromSheetFormat(sheetData) {
+    if (!sheetData || sheetData.length < 2) return [];
+    
+    const items = [];
+    const headers = sheetData[0];
+    
+    for (let i = 1; i < sheetData.length; i++) {
+        const row = sheetData[i];
+        if (!row[0]) continue; // Skip empty rows
+        
+        const item = {
+            id: row[0],
+            name: row[1] || '',
+            url: row[2] || '',
+            platform: row[3] || '',
+            userName: row[4] || '',
+            apiOwner: row[5] || '',
+            interval: parseInt(row[6]) || 3600000,
+            isTracking: row[7] === 'TRUE',
+            data: []
+        };
+        
+        // Add latest data point if available
+        if (row[8] || row[9] || row[10]) {
+            item.data.push({
+                views: row[8] || '',
+                likes: row[9] || '',
+                comments: row[10] || '',
+                timestamp: row[11] || new Date().toISOString()
+            });
+        }
+        
+        items.push(item);
+    }
+    
+    return items;
+}
