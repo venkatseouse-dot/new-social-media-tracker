@@ -1,96 +1,4 @@
 let trackedItems = [];
-
-// User ID for cloud sync
-function getUserId() {
-  let userId = localStorage.getItem('userId');
-  if (!userId) {
-    userId = 'user_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('userId', userId);
-  }
-  return userId;
-}
-
-// Sync code functions
-function generateSyncCode() {
-  const code = Math.random().toString(36).substr(2, 8).toUpperCase();
-  localStorage.setItem('userId', code);
-  document.getElementById('userCode').value = code;
-  document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Your sync code: <strong>${code}</strong><br>Use this code on other devices to sync data</span>`;
-}
-
-function syncWithCode() {
-  const code = document.getElementById('userCode').value.trim().toUpperCase();
-  if (!code) {
-    alert('Please enter a sync code');
-    return;
-  }
-  
-  document.getElementById('syncStatus').innerHTML = `<span style="color: blue;">🔄 Syncing with code: <strong>${code}</strong></span>`;
-  
-  // Save current local data first
-  const localData = [...trackedItems];
-  
-  // Switch to new user ID and load their data
-  localStorage.setItem('userId', code);
-  loadFromCloud();
-  
-  // Merge local data with loaded data
-  const loadedData = [...trackedItems];
-  
-  // Add local items that don't exist in loaded data (by URL)
-  localData.forEach(localItem => {
-    const exists = loadedData.some(loadedItem => loadedItem.url === localItem.url);
-    if (!exists) {
-      loadedData.push(localItem);
-    }
-  });
-  
-  // Update with merged data and save
-  trackedItems = loadedData;
-  saveToCloud();
-  renderTrackedItems();
-  
-  document.getElementById('syncStatus').innerHTML = `<span style="color: green;">✅ Synced! Total items: ${trackedItems.length}</span>`;
-}
-
-// Database sync functions
-async function saveToCloud() {
-  try {
-    const userId = getUserId();
-    const response = await fetch(`/api/tracked-items?userId=${userId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: trackedItems })
-    });
-    if (response.ok) {
-      console.log('✅ Data saved to database for user:', userId);
-    } else {
-      throw new Error(`HTTP ${response.status}`);
-    }
-  } catch (error) {
-    console.error('💾 Database save failed:', error);
-    localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
-  }
-}
-
-async function loadFromCloud() {
-  try {
-    const userId = getUserId();
-    const response = await fetch(`/api/tracked-items?userId=${userId}`);
-    if (response.ok) {
-      const data = await response.json();
-      trackedItems = Array.isArray(data) ? data : [];
-      console.log('✅ Data loaded from database for user:', userId, '- items:', trackedItems.length);
-      localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
-    } else {
-      throw new Error(`HTTP ${response.status}`);
-    }
-  } catch (error) {
-    console.error('💾 Database load failed:', error);
-    const local = localStorage.getItem('trackedItems');
-    trackedItems = local ? JSON.parse(local) : [];
-  }
-}
 let trackingIntervals = {};
 let quotaUsed = parseInt(localStorage.getItem('youtube_quota_used') || '0');
 let quotaResetTime = localStorage.getItem('youtube_quota_reset') || new Date().toDateString();
@@ -99,13 +7,9 @@ let instagramQuotaLimit = 10.00; // $10 daily limit
 let instagramQuotaResetTime = localStorage.getItem('instagram_quota_reset') || new Date().toDateString();
 
 document.addEventListener('DOMContentLoaded', async function() {
-    // Load data from database first
-    await loadFromCloud();
-    
-    // Show current sync code
-    const currentCode = getUserId();
-    document.getElementById('userCode').value = currentCode;
-    document.getElementById('syncStatus').innerHTML = `<span style="color: #666;">Current sync code: <strong>${currentCode}</strong></span>`;
+    // Load data from localStorage
+    const local = localStorage.getItem('trackedItems');
+    trackedItems = local ? JSON.parse(local) : [];
     
     // Migrate old data to new format
     migrateOldData();
@@ -820,7 +724,7 @@ async function updateItemData(itemId) {
         if (newData) {
             item.data.push(newData);
             if (item.data.length > 100) item.data.shift();
-            await saveToCloud();
+            localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
             renderTrackedItems();
         }
     } catch (error) {
@@ -842,7 +746,7 @@ function startTracking(itemId) {
         }
     }, item.interval);
 
-    saveToCloud();
+    localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
     renderTrackedItems();
     updateStatus();
 }
@@ -855,7 +759,7 @@ function stopTracking(itemId) {
     clearInterval(trackingIntervals[itemId]);
     delete trackingIntervals[itemId];
 
-    saveToCloud();
+    localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
     renderTrackedItems();
     updateStatus();
 }
@@ -865,7 +769,7 @@ function clearItemData(itemId) {
         const item = trackedItems.find(i => i.id === itemId);
         if (item) {
             item.data = [];
-            saveToCloud();
+            localStorage.setItem('trackedItems', JSON.stringify(trackedItems));
             renderTrackedItems();
         }
     }
